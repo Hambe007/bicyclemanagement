@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Bicycle Management</title>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .bicycle-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .bicycle-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .bicycle-table th,
+        .bicycle-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .bicycle-table th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .bicycle-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .status-active {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .status-returned {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .bicycle-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Hotel Bicycle Management</h1>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="showIssueForm()">Issue Bicycle</button>
+            <button class="btn btn-success" onclick="showReturnForm()">Return Bicycle</button>
+        </div>
+
+        <!-- Issue Form -->
+        <div id="issueForm" class="bicycle-form" style="display: none;">
+            <h2>Issue Bicycle</h2>
+            <form onsubmit="handleIssue(event)">
+                <div class="form-group">
+                    <label>Room Number</label>
+                    <input type="text" class="form-control" id="roomNumber" required>
+                </div>
+                <div class="form-group">
+                    <label>Guest Name</label>
+                    <input type="text" class="form-control" id="guestName" required>
+                </div>
+                <div class="form-group">
+                    <label>Bicycle Number</label>
+                    <select class="form-control" id="bicycleNumber" required>
+                        <option value="">Select Bicycle</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Issue</button>
+            </form>
+        </div>
+
+        <!-- Return Form -->
+        <div id="returnForm" class="bicycle-form" style="display: none;">
+            <h2>Return Bicycle</h2>
+            <form onsubmit="handleReturn(event)">
+                <div class="form-group">
+                    <label>Bicycle Number</label>
+                    <select class="form-control" id="returnBicycleNumber" required>
+                        <option value="">Select Bicycle</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success">Return</button>
+            </form>
+        </div>
+
+        <!-- Bicycle List -->
+        <table class="bicycle-table">
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Guest Name</th>
+                    <th>Bicycle Number</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="bicycleList">
+                <!-- Will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBjAGc8L0bkO_2RbWi0-rw7__lSHCoBrJQ",
+            authDomain: "bicycle-issuing-system2.firebaseapp.com",
+            projectId: "bicycle-issuing-system2",
+            storageBucket: "bicycle-issuing-system2.firebasestorage.app",
+            messagingSenderId: "64926990610",
+            appId: "1:64926990610:web:f45390888ea1d0dfb5f3cb"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Available bicycles
+        const availableBicycles = Array.from({ length: 20 }, (_, i) => `BIKE${String(i + 1).padStart(2, '0')}`);
+        let issuedBicycles = [];
+
+        // Show/Hide Forms
+        function showIssueForm() {
+            document.getElementById('issueForm').style.display = 'block';
+            document.getElementById('returnForm').style.display = 'none';
+            updateBicycleOptions();
+        }
+
+        function showReturnForm() {
+            document.getElementById('issueForm').style.display = 'none';
+            document.getElementById('returnForm').style.display = 'block';
+            updateReturnOptions();
+        }
+
+        // Update bicycle options
+        function updateBicycleOptions() {
+            const select = document.getElementById('bicycleNumber');
+            select.innerHTML = '<option value="">Select Bicycle</option>';
+            
+            availableBicycles.forEach(bike => {
+                if (!issuedBicycles.includes(bike)) {
+                    const option = document.createElement('option');
+                    option.value = bike;
+                    option.textContent = bike;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        // Update return options
+        function updateReturnOptions() {
+            const select = document.getElementById('returnBicycleNumber');
+            select.innerHTML = '<option value="">Select Bicycle</option>';
+            
+            issuedBicycles.forEach(bike => {
+                const option = document.createElement('option');
+                option.value = bike;
+                option.textContent = bike;
+                select.appendChild(option);
+            });
+        }
+
+        // Handle Issue
+        async function handleIssue(event) {
+            event.preventDefault();
+
+            const issueData = {
+                roomNumber: document.getElementById('roomNumber').value,
+                guestName: document.getElementById('guestName').value,
+                bicycleNumber: document.getElementById('bicycleNumber').value,
+                status: 'Active',
+                date: new Date().toISOString(),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection('bicycles').add(issueData);
+                issuedBicycles.push(issueData.bicycleNumber);
+                event.target.reset();
+                loadBicycles();
+                showIssueForm();
+            } catch (error) {
+                console.error('Error issuing bicycle:', error);
+                alert('Error issuing bicycle');
+            }
+        }
+
+        // Handle Return
+        async function handleReturn(event) {
+            event.preventDefault();
+            const bicycleNumber = document.getElementById('returnBicycleNumber').value;
+
+            try {
+                const snapshot = await db.collection('bicycles')
+                    .where('bicycleNumber', '==', bicycleNumber)
+                    .where('status', '==', 'Active')
+                    .get();
+
+                if (!snapshot.empty) {
+                    await db.collection('bicycles').doc(snapshot.docs[0].id).update({
+                        status: 'Returned',
+                        returnDate: new Date().toISOString()
+                    });
+
+                    issuedBicycles = issuedBicycles.filter(bike => bike !== bicycleNumber);
+                    event.target.reset();
+                    loadBicycles();
+                    showReturnForm();
+                }
+            } catch (error) {
+                console.error('Error returning bicycle:', error);
+                alert('Error returning bicycle');
+            }
+        }
+
+        // Load Bicycles
+        function loadBicycles() {
+            db.collection('bicycles')
+                .orderBy('timestamp', 'desc')
+                .get()
+                .then(snapshot => {
+                    const tbody = document.getElementById('bicycleList');
+                    tbody.innerHTML = '';
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const row = tbody.insertRow();
+                        
+                        row.innerHTML = `
+                            <td>${data.roomNumber}</td>
+                            <td>${data.guestName}</td>
+                            <td>${data.bicycleNumber}</td>
+                            <td class="status-${data.status.toLowerCase()}">${data.status}</td>
+                            <td>${new Date(data.date).toLocaleString()}</td>
+                            <td>
+                                ${data.status === 'Active' ? 
+                                    `<button class="btn btn-success" onclick="quickReturn('${doc.id}', '${data.bicycleNumber}')">Return</button>` 
+                                    : '-'}
+                            </td>
+                        `;
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading bicycles:', error);
+                    alert('Error loading bicycles');
+                });
+        }
+
+        // Quick Return
+        async function quickReturn(docId, bicycleNumber) {
+            try {
+                await db.collection('bicycles').doc(docId).update({
+                    status: 'Returned',
+                    returnDate: new Date().toISOString()
+                });
+
+                issuedBicycles = issuedBicycles.filter(bike => bike !== bicycleNumber);
+                loadBicycles();
+            } catch (error) {
+                console.error('Error returning bicycle:', error);
+                alert('Error returning bicycle');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadBicycles();
+            
+            // Load issued bicycles
+            db.collection('bicycles')
+                .where('status', '==', 'Active')
+                .get()
+                .then(snapshot => {
+                    issuedBicycles = snapshot.docs.map(doc => doc.data().bicycleNumber);
+                    updateBicycleOptions();
+                });
+        });
+    </script>
+</body>
+</html>
