@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRH Bicycle System</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.0/firebase-firestore-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.0/firebase-auth-compat.min.js"></script>
+
+    <style>
+        /* Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f6f8;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        .header {
+            background-color: #3f51b5;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        /* Tab Styles */
+        .tab-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #666;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #3f51b5;
+            border-bottom: 2px solid #3f51b5;
+            margin-bottom: -2px;
+        }
+
+        /* Card and Form Styles */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            color: #3f51b5;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-control {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #3f51b5;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #303f9f;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        /* Status and Priority Badges */
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+
+        .status-pending { background-color: #fff3cd; color: #856404; }
+        .status-in-progress { background-color: #cce5ff; color: #004085; }
+        .status-completed { background-color: #d4edda; color: #155724; }
+        .status-active { background-color: #cce5ff; color: #004085; }
+        .status-returned { background-color: #d4edda; color: #155724; }
+
+        .priority-high { background-color: #f8d7da; color: #721c24; }
+        .priority-medium { background-color: #fff3cd; color: #856404; }
+        .priority-low { background-color: #d4edda; color: #155724; }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem;
+            border-radius: 4px;
+            color: white;
+            display: none;
+            z-index: 1000;
+        }
+
+        .notification.success { background-color: #28a745; }
+        .notification.error { background-color: #dc3545; }
+
+        /* Loading Styles */
+        .loading-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3f51b5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Reports Grid */
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .report-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .report-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #3f51b5;
+            margin-bottom: 10px;
+        }
+
+        .report-description {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* Print Styles */
+        @media print {
+            .no-print { display: none !important; }
+            .container { max-width: 100%; margin: 0; padding: 0; }
+            .card { box-shadow: none; border: 1px solid #ddd; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>HRH Bicycle System</h1>
+        </header>
+
+        <div class="tab-container">
+            <button class="tab active" data-tab="issue">Issue Bicycle</button>
+            <button class="tab" data-tab="return">Return Bicycle</button>
+            <button class="tab" data-tab="maintenance">Maintenance</button>
+            <button class="tab" data-tab="reports">Reports</button>
+        </div>
+
+        <!-- Issue Tab -->
+        <div id="issueTab" class="tab-content active">
+            <div class="card">
+                <h3 class="card-title">Issue Bicycle</h3>
+                <form id="issueForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Room Number *</label>
+                            <input type="text" class="form-control" id="roomNumber" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Guest Name *</label>
+                            <input type="text" class="form-control" id="guestName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Bicycle Type *</label>
+                            <select class="form-control" id="bicycleType" required onchange="updateBicycleNumbers()">
+                                <option value="">Select Bicycle Type</option>
+                                <option value="regular">Regular Bicycle</option>
+                                <option value="kids">Kids Bicycle</option>
+                                <option value="libero">Libero Bicycle</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Bicycle Number *</label>
+                            <select class="form-control" id="bicycleNumber" required>
+                                <option value="">Select Bicycle Number</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Issue Bicycle</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Recent Issues</h3>
+                <div class="table-container">
+                    <table id="recentIssuesTable">
+                        <thead>
+                            <tr>
+                                <th>Room</th>
+                                <th>Guest Name</th>
+                                <th>Bicycle</th>
+                                <th>Issue Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return Tab -->
+        <div id="returnTab" class="tab-content" style="display: none;">
+            <div class="card">
+                <h3 class="card-title">Search Rentals</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <input type="text" class="form-control" id="searchRoom" placeholder="Search by Room Number">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-control" id="searchBicycle" placeholder="Search by Bicycle Number">
+                    </div>
+                    <div class="form-group" style="align-self: flex-end;">
+                        <button class="btn btn-primary" onclick="searchRentals()">Search</button>
+                        <button class="btn btn-secondary" onclick="resetSearch()">Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Active Rentals</h3>
+                <div class="table-container">
+                    <table id="activeRentalsTable">
+                        <thead>
+                            <tr>
+                                <th>Room</th>
+                                <th>Guest Name</th>
+                                <th>Bicycle</th>
+                                <th>Issue Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Tab -->
+        <div id="maintenanceTab" class="tab-content" style="display: none;">
+            <div class="card">
+                <h3 class="card-title">Maintenance Overview</h3>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div id="pendingCount" class="status-value">0</div>
+                        <div class="status-label">Pending</div>
+                    </div>
+                    <div class="status-item">
+                        <div id="inProgressCount" class="status-value">0</div>
+                        <div class="status-label">In Progress</div>
+                    </div>
+                    <div class="status-item">
+                        <div id="completedCount" class="status-value">0</div>
+                        <div class="status-label">Completed Today</div>
+                    </div>
+                    <div class="status-item">
+                        <div id="totalActiveCount" class="status-value">0</div>
+                        <div class="status-label">Total Active Cases</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Report Maintenance Issue</h3>
+                <form id="maintenanceForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Bicycle Type *</label>
+                            <select class="form-control" id="maintBicycleType" required>
+                                <option value="">Select Type</option>
+                                <option value="regular">Regular Bicycle</option>
+                                <option value="kids">Kids Bicycle</option>
+                                <option value="libero">Libero Bicycle</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Issue Type *</label>
+                            <select class="form-control" id="issueType" required>
+                                <option value="">Select Issue Type</option>
+                                <option value="mechanical">Mechanical Issue</option>
+                                <option value="electrical">Electrical Issue</option>
+                                <option value="frame">Frame/Structure Damage</option>
+                                <option value="tire">Tire/Wheel Issue</option>
+                                <option value="brake">Brake System</option>
+                                <option value="chain">Chain/Gear Issue</option>
+                                <option value="seat">Seat/Handle Issue</option>
+                                <option value="inspection">Regular Inspection</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priority *</label>
+                            <select class="form-control" id="priority" required>
+                                <option value="high">High Priority</option>
+                                <option value="medium">Medium Priority</option>
+                                <option value="low">Low Priority</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Issue Description *</label>
+                        <textarea class="form-control" id="issueDescription" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Maintenance Request</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Maintenance Records</h3>
+                <div class="table-container">
+                    <table id="maintenanceTable">
+                        <thead>
+                            <tr>
+                                <th>Bicycle Type</th>
+                                <th>Issue Type</th>
+                                <th>Description</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Reported Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reportsTab" class="tab-content" style="display: none;">
+            <div class="reports-grid">
+                <div class="report-card" onclick="generateDailyReport()">
+                    <div class="report-icon">📊</div>
+                    <div class="report-title">Daily Report</div>
+                    <div class="report-description">
+                        Summary of today's activities, including issues, returns, and maintenance
+                    </div>
+                </div>
+                <div class="report-card" onclick="showCustomReport('rental')">
+                    <div class="report-icon">📋</div>
+                    <div class="report-title">Rental Report</div>
+                    <div class="report-description">
+                        Detailed rental history with customizable date range
+                    </div>
+                </div>
+                <div class="report-card" onclick="showCustomReport('maintenance')">
+                    <div class="report-icon">🔧</div>
+                    <div class="report-title">Maintenance Report</div>
+                    <div class="report-description">
+                        Maintenance history and current status report
+                    </div>
+                </div>
+                <div class="report-card" onclick="showCustomReport('inventory')">
+                    <div class="report-icon">🚲</div>
+                    <div class="report-title">Inventory Status</div>
+                    <div class="report-description">
+                        Current status of all bicycles and their locations
+                    </div>
+                </div>
+            </div>
+
+            <div id="reportPreview" class="card" style="display: none;">
+                <div class="report-header">
+                    <h3 class="card-title">Report Preview</h3>
+                    <div class="report-actions">
+                        <button class="btn btn-success" onclick="exportReport()">Export</button>
+                        <button class="btn btn-primary" onclick="printReport()">Print</button>
+                    </div>
+                </div>
+                <div id="reportContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+<script>
+        // Firebase Configuration and Initialization
+        const firebaseConfig = {
+        apiKey: "AIzaSyBjAGc8L0bkO_2RbWi0-rw7__lSHCoBrJQ",
+  authDomain: "bicycle-issuing-system2.firebaseapp.com",
+  projectId: "bicycle-issuing-system2",
+  storageBucket: "bicycle-issuing-system2.firebasestorage.app",
+  messagingSenderId: "64926990610",
+  appId: "1:64926990610:web:f45390888ea1d0dfb5f3cb"
+};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Global Variables
+        const bicycleInventory = {
+            regular: Array.from({length: 20}, (_, i) => ({ 
+                number: `R${String(i + 1).padStart(2, '0')}`, 
+                status: 'available' 
+            })),
+            kids: Array.from({length: 10}, (_, i) => ({ 
+                number: `K${String(i + 1).padStart(2, '0')}`, 
+                status: 'available' 
+            })),
+            libero: Array.from({length: 5}, (_, i) => ({ 
+                number: `L${String(i + 1).padStart(2, '0')}`, 
+                status: 'available' 
+            }))
+        };
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            loadInitialData();
+        });
+
+        function setupEventListeners() {
+            // Tab Management
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+
+            // Form Submissions
+            document.getElementById('issueForm')?.addEventListener('submit', handleIssueSubmit);
+            document.getElementById('maintenanceForm')?.addEventListener('submit', handleMaintenanceSubmit);
+
+            // Bicycle Type Selection
+            document.getElementById('bicycleType')?.addEventListener('change', updateBicycleNumbers);
+            document.getElementById('maintBicycleType')?.addEventListener('change', updateBicycleNumbers);
+        }
+
+        function loadInitialData() {
+            loadRecentIssues();
+            loadMaintenanceStats();
+            syncBicycleInventory();
+        }
+
+        // Tab Management
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.getAttribute('data-tab') === tabId);
+            });
+
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = content.id === `${tabId}Tab` ? 'block' : 'none';
+            });
+
+            // Load tab-specific data
+            switch(tabId) {
+                case 'maintenance':
+                    loadMaintenanceStats();
+                    loadMaintenanceRecords();
+                    break;
+                case 'return':
+                    loadActiveRentals();
+                    break;
+                case 'reports':
+                    document.getElementById('reportPreview').style.display = 'none';
+                    break;
+            }
+        }
+
+        // Form Handlers
+        async function handleIssueSubmit(e) {
+            e.preventDefault();
+            
+            const formData = {
+                roomNumber: document.getElementById('roomNumber').value,
+                guestName: document.getElementById('guestName').value,
+                bicycleType: document.getElementById('bicycleType').value,
+                bicycleNumber: document.getElementById('bicycleNumber').value,
+                issueDate: new Date().toISOString(),
+                status: 'active'
+            };
+
+            try {
+                await db.collection('rentals').add(formData);
+                updateBicycleStatus(formData.bicycleType, formData.bicycleNumber, 'rented');
+                showNotification('Bicycle issued successfully', 'success');
+                e.target.reset();
+                loadRecentIssues();
+                updateBicycleNumbers();
+            } catch (error) {
+                console.error('Error issuing bicycle:', error);
+                showNotification('Error issuing bicycle', 'error');
+            }
+        }
+
+        async function handleMaintenanceSubmit(e) {
+            e.preventDefault();
+            
+            const maintenanceData = {
+                bicycleType: document.getElementById('maintBicycleType').value,
+                bicycleNumber: document.getElementById('bicycleNumber').value,
+                issueType: document.getElementById('issueType').value,
+                priority: document.getElementById('priority').value,
+                description: document.getElementById('issueDescription').value,
+                status: 'pending',
+                reportedDate: new Date().toISOString(),
+                history: [{
+                    date: new Date().toISOString(),
+                    status: 'pending',
+                    notes: 'Maintenance issue reported'
+                }]
+            };
+
+            try {
+                await db.collection('maintenance').add(maintenanceData);
+                updateBicycleStatus(maintenanceData.bicycleType, maintenanceData.bicycleNumber, 'maintenance');
+                showNotification('Maintenance request submitted successfully', 'success');
+                e.target.reset();
+                loadMaintenanceStats();
+                loadMaintenanceRecords();
+            } catch (error) {
+                console.error('Error submitting maintenance request:', error);
+                showNotification('Error submitting request', 'error');
+            }
+        }
+
+        // Data Loading Functions
+        async function loadRecentIssues() {
+            try {
+                const snapshot = await db.collection('rentals')
+                    .orderBy('issueDate', 'desc')
+                    .limit(10)
+                    .get();
+
+                const tbody = document.querySelector('#recentIssuesTable tbody');
+                tbody.innerHTML = '';
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${data.roomNumber}</td>
+                        <td>${data.guestName}</td>
+                        <td>${data.bicycleType} - ${data.bicycleNumber}</td>
+                        <td>${new Date(data.issueDate).toLocaleString()}</td>
+                        <td><span class="status-badge status-${data.status}">${data.status}</span></td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error loading recent issues:', error);
+                showNotification('Error loading recent issues', 'error');
+            }
+        }
+
+        async function loadActiveRentals() {
+            try {
+                const snapshot = await db.collection('rentals')
+                    .where('status', '==', 'active')
+                    .get();
+
+                const tbody = document.querySelector('#activeRentalsTable tbody');
+                tbody.innerHTML = '';
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${data.roomNumber}</td>
+                        <td>${data.guestName}</td>
+                        <td>${data.bicycleType} - ${data.bicycleNumber}</td>
+                        <td>${new Date(data.issueDate).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="returnBicycle('${doc.id}')">
+                                Return
+                            </button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error loading active rentals:', error);
+                showNotification('Error loading rentals', 'error');
+            }
+        }
+
+        // Bicycle Management
+        function updateBicycleNumbers() {
+            const typeSelect = document.getElementById('bicycleType');
+            const numberSelect = document.getElementById('bicycleNumber');
+            const selectedType = typeSelect.value;
+            
+            numberSelect.innerHTML = '<option value="">Select Bicycle Number</option>';
+            
+            if (selectedType && bicycleInventory[selectedType]) {
+                const availableBicycles = bicycleInventory[selectedType].filter(bike => 
+                    bike.status === 'available'
+                );
+                
+                availableBicycles.forEach(bike => {
+                    const option = document.createElement('option');
+                    option.value = bike.number;
+                    option.textContent = bike.number;
+                    numberSelect.appendChild(option);
+                });
+            }
+        }
+
+        async function syncBicycleInventory() {
+            try {
+                const [rentals, maintenance] = await Promise.all([
+                    db.collection('rentals').where('status', '==', 'active').get(),
+                    db.collection('maintenance').where('status', '!=', 'completed').get()
+                ]);
+
+                // Reset all bicycles to available
+                Object.keys(bicycleInventory).forEach(type => {
+                    bicycleInventory[type].forEach(bike => bike.status = 'available');
+                });
+
+                // Update rented bicycles
+                rentals.forEach(doc => {
+                    const data = doc.data();
+                    updateBicycleStatus(data.bicycleType, data.bicycleNumber, 'rented');
+                });
+
+                // Update maintenance bicycles
+                maintenance.forEach(doc => {
+                    const data = doc.data();
+                    updateBicycleStatus(data.bicycleType, data.bicycleNumber, 'maintenance');
+                });
+            } catch (error) {
+                console.error('Error syncing bicycle inventory:', error);
+                showNotification('Error updating bicycle status', 'error');
+            }
+        }
+
+        // Utility Functions
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        async function exportReport() {
+            const reportContent = document.getElementById('reportContent').innerHTML;
+            const blob = new Blob([reportContent], { type: 'text/html' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report-${new Date().toISOString().split('T')[0]}.html`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+// Maintenance Stats
+async function loadMaintenanceStats() {
+    try {
+        const snapshot = await db.collection('maintenance').get();
+        const stats = {
+            pending: 0,
+            inProgress: 0,
+            completed: 0,
+            total: 0
+        };
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        snapshot.forEach(doc => {
+            const record = doc.data();
+            if (record.status === 'pending') stats.pending++;
+            if (record.status === 'in-progress') stats.inProgress++;
+            if (record.status === 'completed') {
+                const completedDate = new Date(record.completedDate);
+                if (completedDate >= today) {
+                    stats.completed++;
+                }
+            }
+            if (record.status !== 'completed') stats.total++;
+        });
+        
+        document.getElementById('pendingCount').textContent = stats.pending;
+        document.getElementById('inProgressCount').textContent = stats.inProgress;
+        document.getElementById('completedCount').textContent = stats.completed;
+        document.getElementById('totalActiveCount').textContent = stats.total;
+    } catch (error) {
+        console.error('Error loading maintenance stats:', error);
+        showNotification('Error loading statistics', 'error');
+    }
+}
+
+// Maintenance Records
+async function loadMaintenanceRecords() {
+    try {
+        const snapshot = await db.collection('maintenance')
+            .orderBy('reportedDate', 'desc')
+            .get();
+
+        const tbody = document.querySelector('#maintenanceTable tbody');
+        tbody.innerHTML = '';
+
+        snapshot.forEach(doc => {
+            const record = doc.data();
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${record.bicycleType}</td>
+                <td>${record.issueType}</td>
+                <td>${record.description}</td>
+                <td><span class="status-badge priority-${record.priority}">${record.priority}</span></td>
+                <td><span class="status-badge status-${record.status}">${record.status}</span></td>
+                <td>${new Date(record.reportedDate).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-primary" onclick="updateMaintenanceStatus('${doc.id}')">Update</button>
+                </td>
+            `;
+        });
+    } catch (error) {
+        console.error('Error loading maintenance records:', error);
+        showNotification('Error loading maintenance records', 'error');
+    }
+}
+
+// Update Bicycle Status
+function updateBicycleStatus(type, number, status) {
+    const bike = bicycleInventory[type]?.find(b => b.number === number);
+    if (bike) {
+        bike.status = status;
+    }
+}
+
+// Search Functions
+async function searchRentals() {
+    const roomSearch = document.getElementById('searchRoom').value;
+    const bicycleSearch = document.getElementById('searchBicycle').value;
+    
+    try {
+        let query = db.collection('rentals').where('status', '==', 'active');
+        
+        if (roomSearch) {
+            query = query.where('roomNumber', '==', roomSearch);
+        }
+        if (bicycleSearch) {
+            query = query.where('bicycleNumber', '==', bicycleSearch);
+        }
+
+        const snapshot = await query.get();
+        loadActiveRentals();
+    } catch (error) {
+        console.error('Error searching rentals:', error);
+        showNotification('Error searching rentals', 'error');
+    }
+}
+
+function resetSearch() {
+    document.getElementById('searchRoom').value = '';
+    document.getElementById('searchBicycle').value = '';
+    loadActiveRentals();
+}
+
+// Report Functions
+async function generateDailyReport() {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const [rentals, returns, maintenance] = await Promise.all([
+            db.collection('rentals').where('issueDate', '>=', today.toISOString()).get(),
+            db.collection('rentals').where('returnDate', '>=', today.toISOString()).get(),
+            db.collection('maintenance').where('reportedDate', '>=', today.toISOString()).get()
+        ]);
+
+        const reportContent = document.getElementById('reportContent');
+        reportContent.innerHTML = `
+            <h4>Daily Summary</h4>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-value">${rentals.size}</div>
+                    <div class="status-label">New Rentals</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">${returns.size}</div>
+                    <div class="status-label">Returns</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">${maintenance.size}</div>
+                    <div class="status-label">Maintenance Issues</div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('reportPreview').style.display = 'block';
+    } catch (error) {
+        console.error('Error generating daily report:', error);
+        showNotification('Error generating report', 'error');
+    }
+}
+
+function showCustomReport(type) {
+    const reportContent = document.getElementById('reportContent');
+    reportContent.innerHTML = `
+        <h4>${type.charAt(0).toUpperCase() + type.slice(1)} Report</h4>
+        <p>Select date range and filters to generate the report.</p>
+    `;
+    document.getElementById('reportPreview').style.display = 'block';
+}
+    </script>
+</body>
+</html>
